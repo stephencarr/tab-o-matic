@@ -9,24 +9,28 @@
 
 2. **Load the Extension**
    - Click "Load unpacked"
-   - Select the `tab-stash` folder
-   - Done! 📌
+   - Select the `tab-o-matic` folder
+   - Done! 🎉
 
 3. **Try It Out**
-   - Click the Tab Stash icon in your toolbar
-   - Click "Stash This Tab"
-   - Add optional notes or reminder
-   - Click "Stash It!"
+   - Click the Tab-o-Matic icon in your toolbar
+   - Use "Organize This Tab" to stash tabs with notes and reminders
+   - Explore the dashboard for recent activity, stashed tabs, and more
 
-## That's It!
+## Key Features
 
-Your tab is now safely stashed. Click the extension icon anytime to see your stashed tabs.
+- **Tab Stashing**: Quickly stash tabs with notes and reminders
+- **Dashboard**: View recent activity, stashed tabs, and browsing history
+- **Bulk Actions**: Open or delete multiple stashed tabs at once
+- **Domain Filtering**: Filter tabs by domain (e.g., Gmail, Docs)
+- **Keyboard Shortcuts**: Use `Cmd+Shift+S` (Mac) or `Ctrl+Shift+S` (Windows) to stash tabs
+- **Compact Design**: Navigate your tabs efficiently
 
 ---
 
 ### Pro Tips
 
 💡 Pin the extension to your toolbar for quick access
-💡 Use notes to remember why you stashed each tab  
-💡 Set reminders for time-sensitive tabs
+💡 Use notes to remember why you organized each tab  
+💡 Set reminders for time-sensitive tabs  
 💡 Click tab titles to quickly open and remove them
