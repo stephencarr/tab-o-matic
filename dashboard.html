@@ -3,17 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <title>Tab-o-matic</title>
+  <!-- Material Design 3 - Material Symbols -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <!-- Material Design 3 - Roboto Font -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
   <!-- Top Bar -->
   <header class="top-bar">
     <div class="logo">
-      <span class="logo-icon">🎰</span>
+      <span class="material-symbols-outlined logo-icon">casino</span>
       <span class="logo-text">Tab-o-matic</span>
     </div>
     <div class="spacer"></div>
-    <button class="settings-btn" id="settingsBtn" title="Settings">⚙️</button>
+    <button class="settings-btn md-icon-button" id="settingsBtn" title="Settings">
+      <span class="material-symbols-outlined">settings</span>
+    </button>
   </header>
 
   <!-- Main Container -->
@@ -32,22 +38,22 @@
           
           <div class="stash-categories">
             <div class="category-item" data-filter="overdue">
-              <span class="category-icon">🔴</span>
+              <span class="material-symbols-outlined category-icon error-icon">error</span>
               <span class="category-label">Overdue</span>
               <span class="category-count" id="overdueCount">0</span>
             </div>
             <div class="category-item" data-filter="today">
-              <span class="category-icon">⏰</span>
+              <span class="material-symbols-outlined category-icon">alarm</span>
               <span class="category-label">Today</span>
               <span class="category-count" id="todayCount">0</span>
             </div>
             <div class="category-item" data-filter="week">
-              <span class="category-icon">📅</span>
+              <span class="material-symbols-outlined category-icon">calendar_today</span>
               <span class="category-label">This Week</span>
               <span class="category-count" id="weekCount">0</span>
             </div>
             <div class="category-item" data-filter="none">
-              <span class="category-icon">📋</span>
+              <span class="material-symbols-outlined category-icon">description</span>
               <span class="category-label">No Reminder</span>
               <span class="category-count" id="noReminderCount">0</span>
             </div>
@@ -57,33 +63,40 @@
             <!-- Preview cards will be inserted here -->
           </div>
 
-          <button class="view-all-btn" id="viewAllStashedBtn">
-            View All Stashed →
+          <button class="view-all-btn md-outlined-button" id="viewAllStashedBtn">
+            <span>View All Stashed</span>
+            <span class="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>
 
         <!-- Duplicate Tabs Section -->
         <div class="sidebar-section" id="duplicateTabsSection" style="display: none;">
-          <h3 class="sidebar-header">🔄 DUPLICATES</h3>
+          <h3 class="sidebar-header">
+            <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">sync</span>
+            DUPLICATES
+          </h3>
           <p class="duplicate-description">You have <span id="duplicateCount">0</span> duplicate tabs open</p>
           <div class="duplicate-list" id="duplicateList">
             <!-- Duplicate tabs will be listed here -->
           </div>
-          <button class="action-btn danger-btn" id="closeDuplicatesBtn">
+          <button class="action-btn danger-btn md-filled-button" id="closeDuplicatesBtn">
             Close All Duplicates
           </button>
         </div>
 
         <!-- Tab Organization Section -->
         <div class="sidebar-section">
-          <h3 class="sidebar-header">🎯 ORGANIZE</h3>
+          <h3 class="sidebar-header">
+            <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 4px;">target</span>
+            ORGANIZE
+          </h3>
           <div class="organize-actions">
-            <button class="organize-btn" id="groupByDomainBtn">
-              <span class="btn-icon">🗂️</span>
+            <button class="organize-btn md-outlined-button" id="groupByDomainBtn">
+              <span class="material-symbols-outlined">folder</span>
               <span>Group by Domain</span>
             </button>
-            <button class="organize-btn" id="groupToWindowsBtn">
-              <span class="btn-icon">🪟</span>
+            <button class="organize-btn md-outlined-button" id="groupToWindowsBtn">
+              <span class="material-symbols-outlined">space_dashboard</span>
               <span>Split to Windows</span>
             </button>
           </div>
@@ -99,7 +112,10 @@
 
         <!-- Search Bar -->
         <div class="search-container">
-          <input type="text" id="searchInput" placeholder="Search across all tabs and history..." class="search-input">
+          <div class="md-search-field">
+            <span class="material-symbols-outlined search-icon">search</span>
+            <input type="text" id="searchInput" placeholder="Search across all tabs and history..." class="search-input">
+          </div>
         </div>
 
         <!-- Domain Filter Chips -->
@@ -118,47 +134,118 @@
 
     <!-- Stash Management View -->
     <div class="view-container hidden" id="stashView">
-      
-      <div class="stash-header">
-        <button class="back-btn" id="backToRecentBtn">← Back to Recent</button>
-        <h2>STASHED TABS</h2>
-        <span class="stash-count" id="stashViewCount">0</span>
-      </div>
 
-      <div class="stash-controls">
-        <input type="text" id="stashSearchInput" placeholder="Search stashed tabs..." class="search-input small">
-        <div class="control-group">
-          <label>Sort:</label>
-          <select id="sortSelect" class="sort-select">
-            <option value="date">Date Stashed</option>
-            <option value="reminder">Reminder Date</option>
-            <option value="domain">Domain</option>
-          </select>
+      <!-- Sidebar for Stash View -->
+      <aside class="sidebar">
+        <!-- Back Navigation -->
+        <div class="sidebar-section">
+          <button class="back-to-recent-btn md-filled-button" id="backToRecentBtn">
+            <span class="material-symbols-outlined">arrow_back</span>
+            <span>Back to Recent</span>
+          </button>
         </div>
-      </div>
 
-      <div class="stash-filters">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="overdue">Overdue</button>
-        <button class="filter-btn" data-filter="today">Today</button>
-        <button class="filter-btn" data-filter="week">This Week</button>
-        <button class="filter-btn" data-filter="none">No Reminder</button>
-      </div>
+        <!-- Quick Stats -->
+        <div class="sidebar-section">
+          <div class="sidebar-header">
+            <h3>OVERVIEW</h3>
+          </div>
 
-      <div class="domain-filters" id="stashDomainFilters">
-        <button class="domain-chip active" data-domain="all">All Domains</button>
-        <!-- Domain chips will be dynamically added -->
-      </div>
+          <div class="stash-overview-stat">
+            <span class="stat-number" id="stashViewCount">0</span>
+            <span class="stat-label">Total Stashed</span>
+          </div>
 
-      <div class="bulk-actions hidden" id="bulkActions">
-        <span id="selectedCount">0 selected</span>
-        <button class="bulk-btn" id="openSelectedBtn">Open Selected</button>
-        <button class="bulk-btn danger" id="deleteSelectedBtn">Delete Selected</button>
-      </div>
+          <div class="stash-categories">
+            <div class="category-item" data-filter="overdue">
+              <span class="material-symbols-outlined category-icon error-icon">error</span>
+              <span class="category-label">Overdue</span>
+              <span class="category-count" id="stashOverdueCount">0</span>
+            </div>
+            <div class="category-item" data-filter="today">
+              <span class="material-symbols-outlined category-icon">alarm</span>
+              <span class="category-label">Today</span>
+              <span class="category-count" id="stashTodayCount">0</span>
+            </div>
+            <div class="category-item" data-filter="week">
+              <span class="material-symbols-outlined category-icon">calendar_today</span>
+              <span class="category-label">This Week</span>
+              <span class="category-count" id="stashWeekCount">0</span>
+            </div>
+            <div class="category-item" data-filter="none">
+              <span class="material-symbols-outlined category-icon">description</span>
+              <span class="category-label">No Reminder</span>
+              <span class="category-count" id="stashNoReminderCount">0</span>
+            </div>
+          </div>
+        </div>
 
-      <div class="stash-list" id="stashList">
-        <!-- Stashed items will be inserted here -->
-      </div>
+        <!-- Quick Actions -->
+        <div class="sidebar-section">
+          <h3 class="sidebar-header">QUICK ACTIONS</h3>
+          <div class="organize-actions">
+            <button class="organize-btn md-outlined-button" id="exportStashBtn">
+              <span class="material-symbols-outlined">download</span>
+              <span>Export All</span>
+            </button>
+            <button class="organize-btn md-outlined-button" id="clearCompletedBtn">
+              <span class="material-symbols-outlined">check_circle</span>
+              <span>Clear Opened</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="content-area">
+        <div class="content-header">
+          <h2>STASHED TABS</h2>
+        </div>
+
+        <div class="stash-controls">
+          <div class="md-search-field">
+            <span class="material-symbols-outlined search-icon">search</span>
+            <input type="text" id="stashSearchInput" placeholder="Search stashed tabs..." class="search-input">
+          </div>
+          <div class="control-group">
+            <label>Sort:</label>
+            <select id="sortSelect" class="sort-select md-select">
+              <option value="date">Date Stashed</option>
+              <option value="reminder">Reminder Date</option>
+              <option value="domain">Domain</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="stash-filters">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="overdue">Overdue</button>
+          <button class="filter-btn" data-filter="today">Today</button>
+          <button class="filter-btn" data-filter="week">This Week</button>
+          <button class="filter-btn" data-filter="none">No Reminder</button>
+        </div>
+
+        <div class="domain-filters" id="stashDomainFilters">
+          <button class="domain-chip active" data-domain="all">All Domains</button>
+          <!-- Domain chips will be dynamically added -->
+        </div>
+
+        <div class="bulk-actions hidden md-card" id="bulkActions">
+          <span id="selectedCount">0 selected</span>
+          <button class="bulk-btn md-filled-button" id="openSelectedBtn">
+            <span class="material-symbols-outlined">open_in_new</span>
+            <span>Open Selected</span>
+          </button>
+          <button class="bulk-btn danger md-filled-button" id="deleteSelectedBtn">
+            <span class="material-symbols-outlined">delete</span>
+            <span>Delete Selected</span>
+          </button>
+        </div>
+
+        <div class="stash-list" id="stashList">
+          <!-- Stashed items will be inserted here -->
+        </div>
+      </main>
 
     </div>
 
@@ -166,10 +253,12 @@
 
   <!-- Edit Stash Modal -->
   <div class="modal" id="editModal">
-    <div class="modal-content">
+    <div class="modal-content md-dialog">
       <div class="modal-header">
         <h3>Edit Stashed Tab</h3>
-        <button class="close-btn" id="closeEditModalBtn">×</button>
+        <button class="close-btn md-icon-button" id="closeEditModalBtn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
       
       <div class="modal-body">
@@ -194,24 +283,35 @@
             <button type="button" class="quick-reminder-btn" data-custom="true">Custom...</button>
           </div>
           <input type="datetime-local" class="form-input" id="editReminderInput" style="display: none; margin-top: 8px;">
-          <button type="button" class="clear-reminder-btn" id="clearReminderBtn">× Clear Reminder</button>
+          <button type="button" class="clear-reminder-btn md-outlined-button" id="clearReminderBtn">
+            <span class="material-symbols-outlined">close</span>
+            <span>Clear Reminder</span>
+          </button>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
-        <button class="btn btn-danger" id="deleteFromEditBtn">Delete</button>
-        <button class="btn btn-primary" id="saveEditBtn">Save</button>
+        <button class="btn btn-secondary md-text-button" id="cancelEditBtn">Cancel</button>
+        <button class="btn btn-danger md-text-button danger" id="deleteFromEditBtn">
+          <span class="material-symbols-outlined">delete</span>
+          <span>Delete</span>
+        </button>
+        <button class="btn btn-primary md-filled-button" id="saveEditBtn">Save</button>
       </div>
     </div>
   </div>
 
   <!-- Settings Modal -->
   <div class="modal" id="settingsModal">
-    <div class="modal-content settings-modal">
+    <div class="modal-content settings-modal md-dialog">
       <div class="modal-header">
-        <h3>⚙️ Settings</h3>
-        <button class="close-btn" id="closeSettingsBtn">×</button>
+        <h3>
+          <span class="material-symbols-outlined" style="font-size: 20px; vertical-align: middle; margin-right: 8px;">settings</span>
+          Settings
+        </h3>
+        <button class="close-btn md-icon-button" id="closeSettingsBtn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
       
       <div class="modal-body">
@@ -266,8 +366,11 @@
               </div>
             </div>
           </div>
-          
-          <p class="settings-hint">💡 Drag panels to reorder them</p>
+
+          <p class="settings-hint">
+            <span class="material-symbols-outlined">info</span>
+            <span>Drag panels to reorder them</span>
+          </p>
         </section>
 
         <!-- Statistics -->
@@ -302,14 +405,17 @@
             </div>
           </div>
           
-          <p class="settings-hint">💡 Stats are calculated from your browsing history and stash activity</p>
+          <p class="settings-hint">
+            <span class="material-symbols-outlined">info</span>
+            <span>Stats are calculated from your browsing history and stash activity</span>
+          </p>
         </section>
 
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="resetSettingsBtn">Reset to Defaults</button>
-        <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+        <button class="btn btn-secondary md-outlined-button" id="resetSettingsBtn">Reset to Defaults</button>
+        <button class="btn btn-primary md-filled-button" id="saveSettingsBtn">Save Settings</button>
       </div>
     </div>
   </div>
