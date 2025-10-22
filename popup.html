@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 400px;
+      min-height: 300px;
+      max-height: 600px;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .stash-current {
+      background: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #667eea;
+      font-size: 13px;
+      transition: transform 0.1s;
+    }
+
+    .stash-current:hover {
+      transform: scale(1.05);
+    }
+
+    .stash-current:active {
+      transform: scale(0.95);
+    }
+
+    .container {
+      padding: 16px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .stashed-item {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      transition: box-shadow 0.2s;
+    }
+
+    .stashed-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+
+    .item-title {
+      font-weight: 600;
+      color: #333;
+      flex: 1;
+      cursor: pointer;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .item-title:hover {
+      color: #667eea;
+    }
+
+    .item-url {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item-notes {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .item-reminder {
+      font-size: 12px;
+      color: #ff6b6b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.8;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #ff6b6b;
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: #999;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    .delete-btn:hover {
+      background: #ffebee;
+      color: #ff6b6b;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      width: 360px;
+      max-width: 90%;
+    }
+
+    .modal-header {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .quick-reminders {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .quick-reminder-btn {
+      padding: 6px 12px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .quick-reminder-btn:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+      color: #667eea;
+    }
+
+    .quick-reminder-btn.selected {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .selected-reminder {
+      font-size: 12px;
+      color: #667eea;
+      margin-top: 6px;
+      padding: 6px 10px;
+      background: #f8f9ff;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .selected-reminder.active {
+      display: block;
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      justify-content: flex-end;
+    }
+
+    .timestamp {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📌 Tab Stash</h1>
+    <button class="stash-current" id="stashCurrentBtn">Stash This Tab</button>
+  </div>
+
+  <div class="container" id="container">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-state-icon">📭</div>
+      <p>No stashed tabs yet.<br>Click "Stash This Tab" to get started!</p>
+    </div>
+    <div id="stashedList"></div>
+  </div>
+
+  <!-- Modal for adding notes and reminder -->
+  <div class="modal" id="stashModal">
+    <div class="modal-content">
+      <div class="modal-header">Stash Tab</div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-textarea" id="notesInput" placeholder="Why do you need to come back to this?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reminder (optional)</label>
+        <div class="quick-reminders">
+          <button type="button" class="quick-reminder-btn" data-hours="1">In 1 hour</button>
+          <button type="button" class="quick-reminder-btn" data-hours="3">In 3 hours</button>
+          <button type="button" class="quick-reminder-btn" data-tomorrow="10">Tomorrow at 10am</button>
+          <button type="button" class="quick-reminder-btn" data-days="7">In 1 week</button>
+          <button type="button" class="quick-reminder-btn" data-custom="true">Custom...</button>
+        </div>
+        <input type="datetime-local" class="form-input" id="reminderInput" style="display: none; margin-top: 8px;">
+        <div id="selectedReminderText" class="selected-reminder"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelStashBtn">Cancel</button>
+        <button class="btn btn-primary" id="confirmStashBtn">Stash It!</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

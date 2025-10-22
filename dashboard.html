@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tab-o-matic</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="logo">
+      <span class="logo-icon">🎰</span>
+      <span class="logo-text">Tab-o-matic</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="settings-btn" id="settingsBtn" title="Settings">⚙️</button>
+  </header>
+
+  <!-- Main Container -->
+  <div class="main-container" id="mainContainer">
+    
+    <!-- Recent Activity View (Default) -->
+    <div class="view-container" id="recentView">
+      
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-header">
+            <h3>STASHED</h3>
+            <span class="count-badge" id="totalStashCount">0</span>
+          </div>
+          
+          <div class="stash-categories">
+            <div class="category-item" data-filter="overdue">
+              <span class="category-icon">🔴</span>
+              <span class="category-label">Overdue</span>
+              <span class="category-count" id="overdueCount">0</span>
+            </div>
+            <div class="category-item" data-filter="today">
+              <span class="category-icon">⏰</span>
+              <span class="category-label">Today</span>
+              <span class="category-count" id="todayCount">0</span>
+            </div>
+            <div class="category-item" data-filter="week">
+              <span class="category-icon">📅</span>
+              <span class="category-label">This Week</span>
+              <span class="category-count" id="weekCount">0</span>
+            </div>
+            <div class="category-item" data-filter="none">
+              <span class="category-icon">📋</span>
+              <span class="category-label">No Reminder</span>
+              <span class="category-count" id="noReminderCount">0</span>
+            </div>
+          </div>
+
+          <div class="stash-preview" id="stashPreview">
+            <!-- Preview cards will be inserted here -->
+          </div>
+
+          <button class="view-all-btn" id="viewAllStashedBtn">
+            View All Stashed →
+          </button>
+        </div>
+
+        <!-- Duplicate Tabs Section -->
+        <div class="sidebar-section" id="duplicateTabsSection" style="display: none;">
+          <h3 class="sidebar-header">🔄 DUPLICATES</h3>
+          <p class="duplicate-description">You have <span id="duplicateCount">0</span> duplicate tabs open</p>
+          <div class="duplicate-list" id="duplicateList">
+            <!-- Duplicate tabs will be listed here -->
+          </div>
+          <button class="action-btn danger-btn" id="closeDuplicatesBtn">
+            Close All Duplicates
+          </button>
+        </div>
+
+        <!-- Tab Organization Section -->
+        <div class="sidebar-section">
+          <h3 class="sidebar-header">🎯 ORGANIZE</h3>
+          <div class="organize-actions">
+            <button class="organize-btn" id="groupByDomainBtn">
+              <span class="btn-icon">🗂️</span>
+              <span>Group by Domain</span>
+            </button>
+            <button class="organize-btn" id="groupToWindowsBtn">
+              <span class="btn-icon">🪟</span>
+              <span>Split to Windows</span>
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Main Content -->
+      <main class="content-area">
+        <div class="content-header">
+          <h2>RECENT ACTIVITY</h2>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-container">
+          <input type="text" id="searchInput" placeholder="Search across all tabs and history..." class="search-input">
+        </div>
+
+        <!-- Domain Filter Chips -->
+        <div class="domain-filters" id="domainFilters">
+          <button class="domain-chip active" data-domain="all">All</button>
+          <!-- Domain chips will be dynamically added -->
+        </div>
+
+        <!-- Recent Sections -->
+        <div class="activity-feed">
+          <!-- Sections will be dynamically added based on settings -->
+        </div>
+      </main>
+
+    </div>
+
+    <!-- Stash Management View -->
+    <div class="view-container hidden" id="stashView">
+      
+      <div class="stash-header">
+        <button class="back-btn" id="backToRecentBtn">← Back to Recent</button>
+        <h2>STASHED TABS</h2>
+        <span class="stash-count" id="stashViewCount">0</span>
+      </div>
+
+      <div class="stash-controls">
+        <input type="text" id="stashSearchInput" placeholder="Search stashed tabs..." class="search-input small">
+        <div class="control-group">
+          <label>Sort:</label>
+          <select id="sortSelect" class="sort-select">
+            <option value="date">Date Stashed</option>
+            <option value="reminder">Reminder Date</option>
+            <option value="domain">Domain</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="stash-filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="overdue">Overdue</button>
+        <button class="filter-btn" data-filter="today">Today</button>
+        <button class="filter-btn" data-filter="week">This Week</button>
+        <button class="filter-btn" data-filter="none">No Reminder</button>
+      </div>
+
+      <div class="domain-filters" id="stashDomainFilters">
+        <button class="domain-chip active" data-domain="all">All Domains</button>
+        <!-- Domain chips will be dynamically added -->
+      </div>
+
+      <div class="bulk-actions hidden" id="bulkActions">
+        <span id="selectedCount">0 selected</span>
+        <button class="bulk-btn" id="openSelectedBtn">Open Selected</button>
+        <button class="bulk-btn danger" id="deleteSelectedBtn">Delete Selected</button>
+      </div>
+
+      <div class="stash-list" id="stashList">
+        <!-- Stashed items will be inserted here -->
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Edit Stash Modal -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit Stashed Tab</h3>
+        <button class="close-btn" id="closeEditModalBtn">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="tab-info">
+          <div class="tab-title" id="editTabTitle"></div>
+          <div class="tab-url" id="editTabUrl"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea class="form-textarea" id="editNotesInput" placeholder="Why come back to this?"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Reminder</label>
+          <div id="editCurrentReminder" class="current-reminder"></div>
+          <div class="quick-reminders">
+            <button type="button" class="quick-reminder-btn" data-hours="1">In 1 hour</button>
+            <button type="button" class="quick-reminder-btn" data-hours="3">In 3 hours</button>
+            <button type="button" class="quick-reminder-btn" data-tomorrow="10">Tomorrow at 10am</button>
+            <button type="button" class="quick-reminder-btn" data-days="7">In 1 week</button>
+            <button type="button" class="quick-reminder-btn" data-custom="true">Custom...</button>
+          </div>
+          <input type="datetime-local" class="form-input" id="editReminderInput" style="display: none; margin-top: 8px;">
+          <button type="button" class="clear-reminder-btn" id="clearReminderBtn">× Clear Reminder</button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
+        <button class="btn btn-danger" id="deleteFromEditBtn">Delete</button>
+        <button class="btn btn-primary" id="saveEditBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content settings-modal">
+      <div class="modal-header">
+        <h3>⚙️ Settings</h3>
+        <button class="close-btn" id="closeSettingsBtn">×</button>
+      </div>
+      
+      <div class="modal-body">
+        
+        <!-- Activity Panel Settings -->
+        <section class="settings-section">
+          <h4 class="settings-section-title">Activity Panels</h4>
+          <p class="settings-description">Configure what activity panels to show and their order</p>
+          
+          <div class="panel-settings" id="panelSettings">
+            <div class="panel-setting-item" data-panel="justNow">
+              <div class="panel-drag-handle">⋮⋮</div>
+              <input type="checkbox" id="showJustNow" checked>
+              <label for="showJustNow">Just Now</label>
+              <div class="panel-controls">
+                <label class="panel-limit-label">Show:</label>
+                <input type="number" id="limitJustNow" value="10" min="5" max="50" class="panel-limit-input">
+                <span>items</span>
+              </div>
+            </div>
+            
+            <div class="panel-setting-item" data-panel="earlierToday">
+              <div class="panel-drag-handle">⋮⋮</div>
+              <input type="checkbox" id="showEarlierToday" checked>
+              <label for="showEarlierToday">Earlier Today</label>
+              <div class="panel-controls">
+                <label class="panel-limit-label">Show:</label>
+                <input type="number" id="limitEarlierToday" value="25" min="5" max="100" class="panel-limit-input">
+                <span>items</span>
+              </div>
+            </div>
+            
+            <div class="panel-setting-item" data-panel="recentlyClosed">
+              <div class="panel-drag-handle">⋮⋮</div>
+              <input type="checkbox" id="showRecentlyClosed" checked>
+              <label for="showRecentlyClosed">Recently Closed</label>
+              <div class="panel-controls">
+                <label class="panel-limit-label">Show:</label>
+                <input type="number" id="limitRecentlyClosed" value="25" min="5" max="50" class="panel-limit-input">
+                <span>items</span>
+              </div>
+            </div>
+            
+            <div class="panel-setting-item" data-panel="mostVisited">
+              <div class="panel-drag-handle">⋮⋮</div>
+              <input type="checkbox" id="showMostVisited" checked>
+              <label for="showMostVisited">Most Visited</label>
+              <div class="panel-controls">
+                <label class="panel-limit-label">Show:</label>
+                <input type="number" id="limitMostVisited" value="20" min="5" max="50" class="panel-limit-input">
+                <span>items</span>
+              </div>
+            </div>
+          </div>
+          
+          <p class="settings-hint">💡 Drag panels to reorder them</p>
+        </section>
+
+        <!-- Statistics -->
+        <section class="settings-section">
+          <h4 class="settings-section-title">📊 Insights</h4>
+          <p class="settings-description">Your browsing and productivity patterns</p>
+          
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="statCompletionRate">—</div>
+              <div class="stat-label">Completion Rate</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statTimeSaved">—</div>
+              <div class="stat-label">Overload Avoided</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statTopDomain">—</div>
+              <div class="stat-label">Top Domain Today</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statDailyAverage">—</div>
+              <div class="stat-label">Avg Tabs/Day</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statLongestStreak">—</div>
+              <div class="stat-label">Daily Streak</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statProductivityScore">—</div>
+              <div class="stat-label">Focus Score</div>
+            </div>
+          </div>
+          
+          <p class="settings-hint">💡 Stats are calculated from your browsing history and stash activity</p>
+        </section>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="resetSettingsBtn">Reset to Defaults</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

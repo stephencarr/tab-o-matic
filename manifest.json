@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Tab-o-matic",
+  "version": "2.0",
+  "description": "Your tab command center - stash tabs, view history, and manage everything tab-related",
+  "permissions": [
+    "tabs",
+    "storage",
+    "notifications",
+    "alarms",
+    "history",
+    "contextMenus",
+    "sessions",
+    "topSites"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "chrome_url_overrides": {
+    "newtab": "dashboard.html"
+  },
+  "commands": {
+    "stash-tab": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Stash current tab"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
