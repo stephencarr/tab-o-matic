@@ -404,7 +404,7 @@ function renderDomainFilters() {
     const displayName = domain.replace('www.', '').split('.')[0];
     html += `
       <button class="domain-chip" data-domain="${escapeHtml(domain)}">
-        <img src="${data.faviconUrl}" class="domain-favicon" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+        <img src="${data.faviconUrl}" class="domain-favicon">
         <span class="domain-icon" style="display:none;">${data.icon}</span>
         <span class="domain-name">${escapeHtml(displayName)}</span>
       </button>
@@ -746,7 +746,7 @@ function renderStashDomainFilters() {
     const displayName = domain.replace('www.', '').split('.')[0];
     html += `
       <button class="domain-chip" data-domain="${escapeHtml(domain)}">
-        <img src="${data.faviconUrl}" class="domain-favicon" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+        <img src="${data.faviconUrl}" class="domain-favicon">
         <span class="domain-icon" style="display:none;">${data.icon}</span>
         <span class="domain-name">${escapeHtml(displayName)}</span>
         <span class="domain-count">(${data.count})</span>
@@ -771,16 +771,17 @@ function renderStashDomainFilters() {
 function createActivityItemHTML(item) {
   const hasReminder = stashedTabs.some(tab => tab.url === item.url);
   const timeSince = getTimeSince(item.lastVisitTime);
+  const domain = getDomain(item.url);
 
   return `
     <div class="activity-item" id="activity-${item.id}">
       <div class="item-favicon">
-        <img src="chrome://favicon/${item.url}" alt="" onerror="this.style.display='none'" />
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
       </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(item.title || 'Untitled')}</div>
         <div class="item-meta">
-          <span>${getDomain(item.url)}</span>
+          <span>${domain}</span>
           <span>•</span>
           <span>${timeSince}</span>
           ${hasReminder ? '<span class="reminder-indicator">⏰</span>' : ''}
@@ -792,16 +793,17 @@ function createActivityItemHTML(item) {
 
 function createClosedTabHTML(tab, index) {
   const hasReminder = stashedTabs.some(t => t.url === tab.url);
+  const domain = getDomain(tab.url);
 
   return `
     <div class="activity-item" id="closed-${index}">
       <div class="item-favicon">
-        <img src="chrome://favicon/${tab.url}" alt="" onerror="this.style.display='none'" />
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
       </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(tab.title || 'Untitled')}</div>
         <div class="item-meta">
-          <span>${getDomain(tab.url)}</span>
+          <span>${domain}</span>
           ${hasReminder ? '<span class="reminder-indicator">⏰</span>' : ''}
         </div>
       </div>
@@ -816,7 +818,7 @@ function createMostVisitedHTML(site, index) {
   return `
     <div class="activity-item" id="visited-${index}">
       <div class="item-favicon">
-        <img src="chrome://favicon/${site.url}" alt="" onerror="this.style.display='none'" />
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
       </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(site.title || 'Untitled')}</div>
@@ -849,13 +851,14 @@ function createPreviewCardHTML(tab) {
 function createStashItemHTML(tab, isOverdue = false) {
   const stashedTime = formatDate(new Date(tab.stashedAt));
   const reminderText = tab.reminderDate ? formatReminderDate(tab.reminderDate) : '';
+  const domain = getDomain(tab.url);
 
   return `
     <div class="stash-item ${isOverdue ? 'overdue' : ''}" id="stash-${tab.id}">
       <div class="stash-item-header">
         <input type="checkbox" class="stash-checkbox" id="check-${tab.id}">
         <div class="stash-favicon">
-          <img src="chrome://favicon/${tab.url}" alt="" onerror="this.style.display='none'" />
+          <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
         </div>
         <div class="stash-content">
           <div class="stash-title">${escapeHtml(tab.title)}</div>
@@ -1741,15 +1744,24 @@ async function splitTabsToWindows() {
 
 async function ungroupAll() {
   try {
-    const allWindows = await chrome.windows.getAll({ populate: true });
+    // Only get normal windows (exclude popup, devtools, etc.)
+    const allWindows = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal']
+    });
+
+    if (allWindows.length === 0) {
+      alert('No normal windows found!');
+      return;
+    }
 
     if (!confirm('Ungroup all tabs and merge into a single window?\n\nThis will remove all tab groups and move all tabs to one window.')) {
       return;
     }
 
-    // Collect all tabs from all windows (excluding chrome:// pages and pinned tabs)
+    // Collect all tabs from normal windows (excluding chrome:// pages and pinned tabs)
     const allTabs = [];
-    let mainWindowId = null;
+    let mainWindowId = allWindows[0].id; // Use first normal window as main
 
     for (const window of allWindows) {
       for (const tab of window.tabs) {
@@ -1757,9 +1769,6 @@ async function ungroupAll() {
             !tab.url.startsWith('chrome-extension://') &&
             !tab.pinned) {
           allTabs.push(tab);
-          if (!mainWindowId) {
-            mainWindowId = window.id;
-          }
         }
       }
     }
@@ -1784,13 +1793,18 @@ async function ungroupAll() {
     const tabsToMove = allTabs.filter(tab => tab.windowId !== mainWindowId);
     if (tabsToMove.length > 0) {
       const tabIds = tabsToMove.map(t => t.id);
-      await chrome.tabs.move(tabIds, {
-        windowId: mainWindowId,
-        index: -1
-      });
+      try {
+        await chrome.tabs.move(tabIds, {
+          windowId: mainWindowId,
+          index: -1
+        });
+      } catch (e) {
+        console.error('Failed to move tabs:', e);
+        throw e;
+      }
     }
 
-    // Close empty windows
+    // Close empty normal windows
     for (const window of allWindows) {
       if (window.id !== mainWindowId) {
         const remainingTabs = await chrome.tabs.query({ windowId: window.id });
