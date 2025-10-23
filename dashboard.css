@@ -487,6 +487,23 @@ body {
   border-bottom: 1px solid #f0f0f0;
 }
 
+.date-group-heading {
+  font-size: 11px;
+  font-weight: 700;
+  color: #79747E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: #F7F2FA;
+  border-radius: 4px;
+}
+
+.date-group-heading:first-child {
+  margin-top: 0;
+}
+
 .activity-list {
   display: flex;
   flex-direction: column;

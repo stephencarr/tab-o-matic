@@ -48,13 +48,11 @@ async function loadData() {
     settings = { ...settings, ...settingsResult.settings };
   }
   
-  // Load recent history (last 500 items from past 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Load recent history (all history items for quick access)
   const historyItems = await chrome.history.search({
     text: '',
-    startTime: thirtyDaysAgo.getTime(),
-    maxResults: 500
+    startTime: 0, // No time restriction
+    maxResults: 1000 // Large set for deduplication
   });
   recentHistory = historyItems;
   
@@ -213,26 +211,78 @@ function renderJustNow() {
   });
 }
 
+function getDateGroup(timestamp) {
+  const now = Date.now();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(thisWeekStart.getDate() - today.getDay()); // Start of this week (Sunday)
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+
+  if (timestamp >= today.getTime()) {
+    return 'Today';
+  } else if (timestamp >= yesterday.getTime()) {
+    return 'Yesterday';
+  } else if (timestamp >= thisWeekStart.getTime()) {
+    return 'This Week';
+  } else if (timestamp >= lastWeekStart.getTime()) {
+    return 'Last Week';
+  } else if (timestamp >= thisMonthStart.getTime()) {
+    return 'This Month';
+  } else if (timestamp >= lastMonthStart.getTime()) {
+    return 'Last Month';
+  } else {
+    return 'Older';
+  }
+}
+
 function renderEarlierToday() {
   const list = document.getElementById('earlierTodayList');
   if (!list) return;
-  
+
   const now = Date.now();
   const fiveMinutesAgo = now - (5 * 60 * 1000);
-  
-  const earlier = deduplicateByUrl(
+
+  // Deduplicate and limit, excluding "Just Now" items
+  const dedupedHistory = deduplicateByUrl(
     recentHistory.filter(item => item.lastVisitTime <= fiveMinutesAgo)
   ).slice(0, settings.panels.earlierToday.limit);
-  
-  if (earlier.length === 0) {
+
+  if (dedupedHistory.length === 0) {
     list.innerHTML = '<div class="empty-message">No recent history</div>';
     return;
   }
-  
-  list.innerHTML = earlier.map(item => createActivityItemHTML(item)).join('');
-  
+
+  // Group by date
+  const grouped = {};
+  const groupOrder = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Older'];
+
+  dedupedHistory.forEach(item => {
+    const group = getDateGroup(item.lastVisitTime);
+    if (!grouped[group]) {
+      grouped[group] = [];
+    }
+    grouped[group].push(item);
+  });
+
+  // Render with group headings
+  let html = '';
+  groupOrder.forEach(group => {
+    if (grouped[group] && grouped[group].length > 0) {
+      html += `<div class="date-group-heading">${group}</div>`;
+      html += grouped[group].map(item => createActivityItemHTML(item)).join('');
+    }
+  });
+
+  list.innerHTML = html;
+
   // Add click handlers
-  earlier.forEach((item) => {
+  dedupedHistory.forEach((item) => {
     const elem = document.getElementById(`activity-${item.id}`);
     if (elem) {
       elem.addEventListener('click', () => {
@@ -402,7 +452,7 @@ function handleDomainFilter(chip) {
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
       const earlier = filteredHistory.filter(item => item.lastVisitTime <= fiveMinutesAgo);
-      renderFilteredList('earlierTodayList', earlier);
+      renderFilteredHistoryWithGroups('earlierTodayList', earlier);
     } else if (panelId === 'recentlyClosed') {
       const section = createSection('Recently Closed', 'recentlyClosedList');
       feed.appendChild(section);
@@ -1057,7 +1107,7 @@ function handleSearch(e) {
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
       const earlier = filteredHistory.filter(item => item.lastVisitTime <= fiveMinutesAgo);
-      renderFilteredList('earlierTodayList', earlier);
+      renderFilteredHistoryWithGroups('earlierTodayList', earlier);
     } else if (panelId === 'recentlyClosed') {
       const section = createSection('Recently Closed', 'recentlyClosedList');
       feed.appendChild(section);
@@ -1072,18 +1122,64 @@ function handleSearch(e) {
 
 function renderFilteredList(containerId, items) {
   const list = document.getElementById(containerId);
-  
+
   if (!list) return;
-  
+
   const deduped = deduplicateByUrl(items).slice(0, 25);
-  
+
   if (deduped.length === 0) {
     list.innerHTML = '<div class="empty-message">No matching results</div>';
     return;
   }
-  
+
   list.innerHTML = deduped.map(item => createActivityItemHTML(item)).join('');
-  
+
+  deduped.forEach((item) => {
+    const elem = document.getElementById(`activity-${item.id}`);
+    if (elem) {
+      elem.addEventListener('click', () => {
+        window.open(item.url, '_blank');
+      });
+    }
+  });
+}
+
+function renderFilteredHistoryWithGroups(containerId, items) {
+  const list = document.getElementById(containerId);
+
+  if (!list) return;
+
+  const deduped = deduplicateByUrl(items).slice(0, settings.panels.earlierToday.limit);
+
+  if (deduped.length === 0) {
+    list.innerHTML = '<div class="empty-message">No matching results</div>';
+    return;
+  }
+
+  // Group by date
+  const grouped = {};
+  const groupOrder = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Older'];
+
+  deduped.forEach(item => {
+    const group = getDateGroup(item.lastVisitTime);
+    if (!grouped[group]) {
+      grouped[group] = [];
+    }
+    grouped[group].push(item);
+  });
+
+  // Render with group headings
+  let html = '';
+  groupOrder.forEach(group => {
+    if (grouped[group] && grouped[group].length > 0) {
+      html += `<div class="date-group-heading">${group}</div>`;
+      html += grouped[group].map(item => createActivityItemHTML(item)).join('');
+    }
+  });
+
+  list.innerHTML = html;
+
+  // Add click handlers
   deduped.forEach((item) => {
     const elem = document.getElementById(`activity-${item.id}`);
     if (elem) {
