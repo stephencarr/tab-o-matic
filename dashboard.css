@@ -538,12 +538,14 @@ body {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .item-favicon img {
-  width: 100%;
-  height: 100%;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
 }
 
@@ -822,8 +824,15 @@ body {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  font-size: 18px;
-  line-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stash-favicon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .stash-content {

@@ -62,9 +62,39 @@ async function loadData() {
     .filter(session => session.tab)
     .map(session => session.tab);
   
-  // Load most visited
-  const topSites = await chrome.topSites.get();
-  mostVisited = topSites;
+  // Calculate most visited from history
+  mostVisited = calculateMostVisited(historyItems, settings.panels.mostVisited.limit);
+}
+
+function calculateMostVisited(historyItems, limit = 20) {
+  // Count visits per URL
+  const visitCounts = new Map();
+
+  historyItems.forEach(item => {
+    if (visitCounts.has(item.url)) {
+      const existing = visitCounts.get(item.url);
+      existing.visitCount = (existing.visitCount || 0) + (item.visitCount || 1);
+      // Keep the most recent title
+      if (item.lastVisitTime > existing.lastVisitTime) {
+        existing.title = item.title;
+        existing.lastVisitTime = item.lastVisitTime;
+      }
+    } else {
+      visitCounts.set(item.url, {
+        url: item.url,
+        title: item.title,
+        visitCount: item.visitCount || 1,
+        lastVisitTime: item.lastVisitTime
+      });
+    }
+  });
+
+  // Convert to array and sort by visit count
+  const sorted = Array.from(visitCounts.values())
+    .sort((a, b) => b.visitCount - a.visitCount)
+    .slice(0, limit);
+
+  return sorted;
 }
 
 // Setup event listeners
@@ -740,12 +770,13 @@ function renderStashDomainFilters() {
 // HTML creators
 function createActivityItemHTML(item) {
   const hasReminder = stashedTabs.some(tab => tab.url === item.url);
-  const favicon = getFavicon(item.url);
   const timeSince = getTimeSince(item.lastVisitTime);
-  
+
   return `
     <div class="activity-item" id="activity-${item.id}">
-      <div class="item-favicon">${favicon}</div>
+      <div class="item-favicon">
+        <img src="chrome://favicon/${item.url}" alt="" onerror="this.style.display='none'" />
+      </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(item.title || 'Untitled')}</div>
         <div class="item-meta">
@@ -761,11 +792,12 @@ function createActivityItemHTML(item) {
 
 function createClosedTabHTML(tab, index) {
   const hasReminder = stashedTabs.some(t => t.url === tab.url);
-  const favicon = getFavicon(tab.url);
-  
+
   return `
     <div class="activity-item" id="closed-${index}">
-      <div class="item-favicon">${favicon}</div>
+      <div class="item-favicon">
+        <img src="chrome://favicon/${tab.url}" alt="" onerror="this.style.display='none'" />
+      </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(tab.title || 'Untitled')}</div>
         <div class="item-meta">
@@ -778,15 +810,19 @@ function createClosedTabHTML(tab, index) {
 }
 
 function createMostVisitedHTML(site, index) {
-  const favicon = getFavicon(site.url);
-  
+  const domain = getDomain(site.url);
+  const visitCount = site.visitCount || 0;
+
   return `
     <div class="activity-item" id="visited-${index}">
-      <div class="item-favicon">${favicon}</div>
+      <div class="item-favicon">
+        <img src="chrome://favicon/${site.url}" alt="" onerror="this.style.display='none'" />
+      </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(site.title || 'Untitled')}</div>
         <div class="item-meta">
-          <span>${getDomain(site.url)}</span>
+          <span>${domain}</span>
+          <span class="visit-count">${visitCount} visits</span>
         </div>
       </div>
     </div>
@@ -796,12 +832,14 @@ function createMostVisitedHTML(site, index) {
 function createPreviewCardHTML(tab) {
   const reminderText = tab.reminderDate ? formatReminderDate(tab.reminderDate) : '';
   const isOverdue = tab.reminderDate && new Date(tab.reminderDate) < new Date();
-  
+
   return `
     <div class="preview-card" id="preview-${tab.id}">
       <div class="preview-card-title">${escapeHtml(tab.title)}</div>
       <div class="preview-card-meta">
-        ${isOverdue ? '🔴' : tab.reminderDate ? '⏰' : '📋'}
+        <span class="material-symbols-outlined" style="font-size: 14px; color: ${isOverdue ? '#B3261E' : tab.reminderDate ? '#6750A4' : '#79747E'};">
+          ${isOverdue ? 'error' : tab.reminderDate ? 'alarm' : 'description'}
+        </span>
         ${reminderText || 'No reminder'}
       </div>
     </div>
@@ -809,22 +847,23 @@ function createPreviewCardHTML(tab) {
 }
 
 function createStashItemHTML(tab, isOverdue = false) {
-  const favicon = getFavicon(tab.url);
   const stashedTime = formatDate(new Date(tab.stashedAt));
   const reminderText = tab.reminderDate ? formatReminderDate(tab.reminderDate) : '';
-  
+
   return `
     <div class="stash-item ${isOverdue ? 'overdue' : ''}" id="stash-${tab.id}">
       <div class="stash-item-header">
         <input type="checkbox" class="stash-checkbox" id="check-${tab.id}">
-        <div class="stash-favicon">${favicon}</div>
+        <div class="stash-favicon">
+          <img src="chrome://favicon/${tab.url}" alt="" onerror="this.style.display='none'" />
+        </div>
         <div class="stash-content">
           <div class="stash-title">${escapeHtml(tab.title)}</div>
           <div class="stash-url">${escapeHtml(tab.url)}</div>
           ${tab.notes ? `<div class="stash-notes">${escapeHtml(tab.notes)}</div>` : ''}
           <div class="stash-meta">
-            <span>🕐 Stashed ${stashedTime}</span>
-            ${tab.reminderDate ? `<span class="stash-reminder">⏰ ${reminderText}</span>` : ''}
+            <span>Stashed ${stashedTime}</span>
+            ${tab.reminderDate ? `<span class="stash-reminder">${reminderText}</span>` : ''}
           </div>
           <div class="stash-actions">
             <button class="stash-btn primary" id="open-${tab.id}">Open</button>
