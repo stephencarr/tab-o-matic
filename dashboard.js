@@ -1613,86 +1613,201 @@ async function closeDuplicateTabs() {
 }
 
 async function groupTabsByDomain() {
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-  
-  if (!confirm('Group all tabs in this window by domain?')) {
-    return;
-  }
-  
-  // Skip chrome internal pages
-  const regularTabs = tabs.filter(tab => 
-    !tab.url.startsWith('chrome://') && 
-    !tab.url.startsWith('chrome-extension://')
-  );
-  
-  // Group tabs by domain
-  const domainGroups = new Map();
-  regularTabs.forEach(tab => {
-    try {
-      const domain = new URL(tab.url).hostname;
-      if (!domainGroups.has(domain)) {
-        domainGroups.set(domain, []);
-      }
-      domainGroups.get(domain).push(tab.id);
-    } catch (e) {
-      console.warn('Failed to parse URL:', tab.url);
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+
+    if (!confirm('Group all tabs in this window by domain?\n\nThis will create tab groups for each domain (e.g., all Google Docs together).')) {
+      return;
     }
-  });
-  
-  // Create tab groups (Chrome 89+)
-  for (const [domain, tabIds] of domainGroups) {
-    if (tabIds.length > 1) {
+
+    // Skip chrome internal pages
+    const regularTabs = tabs.filter(tab =>
+      !tab.url.startsWith('chrome://') &&
+      !tab.url.startsWith('chrome-extension://')
+    );
+
+    if (regularTabs.length === 0) {
+      alert('No tabs to group!');
+      return;
+    }
+
+    // Group tabs by full domain (includes subdomain)
+    const domainGroups = new Map();
+    regularTabs.forEach(tab => {
       try {
-        const groupId = await chrome.tabs.group({ tabIds });
-        await chrome.tabGroups.update(groupId, {
-          title: domain.replace('www.', ''),
-          collapsed: false
-        });
+        const url = new URL(tab.url);
+        const domain = url.hostname; // Keeps full domain including subdomains
+        if (!domainGroups.has(domain)) {
+          domainGroups.set(domain, []);
+        }
+        domainGroups.get(domain).push(tab.id);
       } catch (e) {
-        console.warn('Failed to create group for domain:', domain, e);
+        console.warn('Failed to parse URL:', tab.url);
+      }
+    });
+
+    // Create tab groups for each domain (Chrome 89+)
+    let groupedCount = 0;
+    for (const [domain, tabIds] of domainGroups) {
+      if (tabIds.length >= 1) { // Group even single tabs for consistency
+        try {
+          const groupId = await chrome.tabs.group({ tabIds });
+          await chrome.tabGroups.update(groupId, {
+            title: domain.replace('www.', ''),
+            collapsed: false
+          });
+          groupedCount++;
+        } catch (e) {
+          console.error('Failed to create group for domain:', domain, e);
+        }
       }
     }
+
+    alert(`Grouped ${regularTabs.length} tabs into ${groupedCount} domain groups!`);
+  } catch (error) {
+    console.error('Error grouping tabs:', error);
+    alert('Failed to group tabs. Please try again.');
   }
 }
 
 async function splitTabsToWindows() {
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-  
-  if (!confirm('Split tabs by domain into separate windows?')) {
-    return;
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+
+    if (!confirm('Split tabs by domain into separate windows?\n\nThis will create a new window for each domain (e.g., all Google Docs in one window).')) {
+      return;
+    }
+
+    // Skip chrome internal pages
+    const regularTabs = tabs.filter(tab =>
+      !tab.url.startsWith('chrome://') &&
+      !tab.url.startsWith('chrome-extension://')
+    );
+
+    if (regularTabs.length === 0) {
+      alert('No tabs to split!');
+      return;
+    }
+
+    // Group tabs by full domain (includes subdomain)
+    const domainGroups = new Map();
+    regularTabs.forEach(tab => {
+      try {
+        const url = new URL(tab.url);
+        const domain = url.hostname;
+        if (!domainGroups.has(domain)) {
+          domainGroups.set(domain, []);
+        }
+        domainGroups.get(domain).push(tab);
+      } catch (e) {
+        console.warn('Failed to parse URL:', tab.url);
+      }
+    });
+
+    const currentWindowId = tabs[0].windowId;
+    let windowsCreated = 0;
+
+    // Create new window for each domain
+    for (const [domain, domainTabs] of domainGroups) {
+      if (domainTabs.length >= 1) {
+        try {
+          // Create new window with all tabs of this domain
+          const tabIds = domainTabs.map(t => t.id);
+          const newWindow = await chrome.windows.create({
+            tabId: tabIds[0]
+          });
+
+          // Move remaining tabs to the new window
+          if (tabIds.length > 1) {
+            await chrome.tabs.move(tabIds.slice(1), {
+              windowId: newWindow.id,
+              index: -1
+            });
+          }
+
+          windowsCreated++;
+        } catch (e) {
+          console.error('Failed to create window for domain:', domain, e);
+        }
+      }
+    }
+
+    alert(`Split ${regularTabs.length} tabs into ${windowsCreated} windows by domain!`);
+  } catch (error) {
+    console.error('Error splitting tabs:', error);
+    alert('Failed to split tabs. Please try again.');
   }
-  
-  // Skip chrome internal pages
-  const regularTabs = tabs.filter(tab => 
-    !tab.url.startsWith('chrome://') && 
-    !tab.url.startsWith('chrome-extension://')
-  );
-  
-  // Group tabs by domain
-  const domainGroups = new Map();
-  regularTabs.forEach(tab => {
-    try {
-      const domain = new URL(tab.url).hostname;
-      if (!domainGroups.has(domain)) {
-        domainGroups.set(domain, []);
-      }
-      domainGroups.get(domain).push(tab.id);
-    } catch (e) {
-      console.warn('Failed to parse URL:', tab.url);
+}
+
+async function ungroupAll() {
+  try {
+    const allWindows = await chrome.windows.getAll({ populate: true });
+
+    if (!confirm('Ungroup all tabs and merge into a single window?\n\nThis will remove all tab groups and move all tabs to one window.')) {
+      return;
     }
-  });
-  
-  // Create new window for each domain with multiple tabs
-  for (const [domain, tabIds] of domainGroups) {
-    if (tabIds.length > 1) {
-      // Create new window with first tab
-      await chrome.windows.create({ tabId: tabIds[0] });
-      // Move remaining tabs to the new window
-      const newWindow = await chrome.windows.getLastFocused();
-      for (let i = 1; i < tabIds.length; i++) {
-        await chrome.tabs.move(tabIds[i], { windowId: newWindow.id, index: -1 });
+
+    // Collect all tabs from all windows (excluding chrome:// pages and pinned tabs)
+    const allTabs = [];
+    let mainWindowId = null;
+
+    for (const window of allWindows) {
+      for (const tab of window.tabs) {
+        if (!tab.url.startsWith('chrome://') &&
+            !tab.url.startsWith('chrome-extension://') &&
+            !tab.pinned) {
+          allTabs.push(tab);
+          if (!mainWindowId) {
+            mainWindowId = window.id;
+          }
+        }
       }
     }
+
+    if (allTabs.length === 0) {
+      alert('No tabs to ungroup!');
+      return;
+    }
+
+    // First, ungroup all tabs (remove from tab groups)
+    for (const tab of allTabs) {
+      if (tab.groupId !== -1) {
+        try {
+          await chrome.tabs.ungroup(tab.id);
+        } catch (e) {
+          console.warn('Failed to ungroup tab:', tab.id, e);
+        }
+      }
+    }
+
+    // Move all tabs to the main window
+    const tabsToMove = allTabs.filter(tab => tab.windowId !== mainWindowId);
+    if (tabsToMove.length > 0) {
+      const tabIds = tabsToMove.map(t => t.id);
+      await chrome.tabs.move(tabIds, {
+        windowId: mainWindowId,
+        index: -1
+      });
+    }
+
+    // Close empty windows
+    for (const window of allWindows) {
+      if (window.id !== mainWindowId) {
+        const remainingTabs = await chrome.tabs.query({ windowId: window.id });
+        if (remainingTabs.length === 0) {
+          try {
+            await chrome.windows.remove(window.id);
+          } catch (e) {
+            console.warn('Failed to close window:', window.id, e);
+          }
+        }
+      }
+    }
+
+    alert(`Ungrouped and merged ${allTabs.length} tabs into a single window!`);
+  } catch (error) {
+    console.error('Error ungrouping tabs:', error);
+    alert('Failed to ungroup tabs. Please try again.');
   }
 }
 
@@ -1700,6 +1815,7 @@ async function splitTabsToWindows() {
 const closeDuplicatesBtn = document.getElementById('closeDuplicatesBtn');
 const groupByDomainBtn = document.getElementById('groupByDomainBtn');
 const groupToWindowsBtn = document.getElementById('groupToWindowsBtn');
+const ungroupAllBtn = document.getElementById('ungroupAllBtn');
 
 if (closeDuplicatesBtn) {
   closeDuplicatesBtn.addEventListener('click', closeDuplicateTabs);
@@ -1709,6 +1825,9 @@ if (groupByDomainBtn) {
 }
 if (groupToWindowsBtn) {
   groupToWindowsBtn.addEventListener('click', splitTabsToWindows);
+}
+if (ungroupAllBtn) {
+  ungroupAllBtn.addEventListener('click', ungroupAll);
 }
 
 // Utility functions
