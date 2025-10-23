@@ -48,13 +48,11 @@ async function loadData() {
     settings = { ...settings, ...settingsResult.settings };
   }
   
-  // Load recent history (last 100 items from today for better filtering)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Load recent history (all history items for quick access)
   const historyItems = await chrome.history.search({
     text: '',
-    startTime: today.getTime(),
-    maxResults: 100
+    startTime: 0, // No time restriction
+    maxResults: 1000 // Large set for deduplication
   });
   recentHistory = historyItems;
   
@@ -64,9 +62,39 @@ async function loadData() {
     .filter(session => session.tab)
     .map(session => session.tab);
   
-  // Load most visited
-  const topSites = await chrome.topSites.get();
-  mostVisited = topSites;
+  // Calculate most visited from history
+  mostVisited = calculateMostVisited(historyItems, settings.panels.mostVisited.limit);
+}
+
+function calculateMostVisited(historyItems, limit = 20) {
+  // Count visits per URL
+  const visitCounts = new Map();
+
+  historyItems.forEach(item => {
+    if (visitCounts.has(item.url)) {
+      const existing = visitCounts.get(item.url);
+      existing.visitCount = (existing.visitCount || 0) + (item.visitCount || 1);
+      // Keep the most recent title
+      if (item.lastVisitTime > existing.lastVisitTime) {
+        existing.title = item.title;
+        existing.lastVisitTime = item.lastVisitTime;
+      }
+    } else {
+      visitCounts.set(item.url, {
+        url: item.url,
+        title: item.title,
+        visitCount: item.visitCount || 1,
+        lastVisitTime: item.lastVisitTime
+      });
+    }
+  });
+
+  // Convert to array and sort by visit count
+  const sorted = Array.from(visitCounts.values())
+    .sort((a, b) => b.visitCount - a.visitCount)
+    .slice(0, limit);
+
+  return sorted;
 }
 
 // Setup event listeners
@@ -151,7 +179,7 @@ function renderRecentView() {
       feed.appendChild(section);
       renderJustNow();
     } else if (panelId === 'earlierToday') {
-      const section = createSection('Earlier Today', 'earlierTodayList');
+      const section = createSection('Recent History', 'earlierTodayList');
       feed.appendChild(section);
       renderEarlierToday();
     } else if (panelId === 'recentlyClosed') {
@@ -213,26 +241,78 @@ function renderJustNow() {
   });
 }
 
+function getDateGroup(timestamp) {
+  const now = Date.now();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(thisWeekStart.getDate() - today.getDay()); // Start of this week (Sunday)
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+
+  if (timestamp >= today.getTime()) {
+    return 'Today';
+  } else if (timestamp >= yesterday.getTime()) {
+    return 'Yesterday';
+  } else if (timestamp >= thisWeekStart.getTime()) {
+    return 'This Week';
+  } else if (timestamp >= lastWeekStart.getTime()) {
+    return 'Last Week';
+  } else if (timestamp >= thisMonthStart.getTime()) {
+    return 'This Month';
+  } else if (timestamp >= lastMonthStart.getTime()) {
+    return 'Last Month';
+  } else {
+    return 'Older';
+  }
+}
+
 function renderEarlierToday() {
   const list = document.getElementById('earlierTodayList');
   if (!list) return;
-  
+
   const now = Date.now();
   const fiveMinutesAgo = now - (5 * 60 * 1000);
-  
-  const earlier = deduplicateByUrl(
+
+  // Deduplicate and limit, excluding "Just Now" items
+  const dedupedHistory = deduplicateByUrl(
     recentHistory.filter(item => item.lastVisitTime <= fiveMinutesAgo)
   ).slice(0, settings.panels.earlierToday.limit);
-  
-  if (earlier.length === 0) {
-    list.innerHTML = '<div class="empty-message">No activity earlier today</div>';
+
+  if (dedupedHistory.length === 0) {
+    list.innerHTML = '<div class="empty-message">No recent history</div>';
     return;
   }
-  
-  list.innerHTML = earlier.map(item => createActivityItemHTML(item)).join('');
-  
+
+  // Group by date
+  const grouped = {};
+  const groupOrder = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Older'];
+
+  dedupedHistory.forEach(item => {
+    const group = getDateGroup(item.lastVisitTime);
+    if (!grouped[group]) {
+      grouped[group] = [];
+    }
+    grouped[group].push(item);
+  });
+
+  // Render with group headings
+  let html = '';
+  groupOrder.forEach(group => {
+    if (grouped[group] && grouped[group].length > 0) {
+      html += `<div class="date-group-heading">${group}</div>`;
+      html += grouped[group].map(item => createActivityItemHTML(item)).join('');
+    }
+  });
+
+  list.innerHTML = html;
+
   // Add click handlers
-  earlier.forEach((item) => {
+  dedupedHistory.forEach((item) => {
     const elem = document.getElementById(`activity-${item.id}`);
     if (elem) {
       elem.addEventListener('click', () => {
@@ -324,7 +404,7 @@ function renderDomainFilters() {
     const displayName = domain.replace('www.', '').split('.')[0];
     html += `
       <button class="domain-chip" data-domain="${escapeHtml(domain)}">
-        <img src="${data.faviconUrl}" class="domain-favicon" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+        <img src="${data.faviconUrl}" class="domain-favicon">
         <span class="domain-icon" style="display:none;">${data.icon}</span>
         <span class="domain-name">${escapeHtml(displayName)}</span>
       </button>
@@ -397,12 +477,12 @@ function handleDomainFilter(chip) {
       const justNow = filteredHistory.filter(item => item.lastVisitTime > fiveMinutesAgo);
       renderFilteredList('justNowList', justNow);
     } else if (panelId === 'earlierToday') {
-      const section = createSection('Earlier Today', 'earlierTodayList');
+      const section = createSection('Recent History', 'earlierTodayList');
       feed.appendChild(section);
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
       const earlier = filteredHistory.filter(item => item.lastVisitTime <= fiveMinutesAgo);
-      renderFilteredList('earlierTodayList', earlier);
+      renderFilteredHistoryWithGroups('earlierTodayList', earlier);
     } else if (panelId === 'recentlyClosed') {
       const section = createSection('Recently Closed', 'recentlyClosedList');
       feed.appendChild(section);
@@ -666,7 +746,7 @@ function renderStashDomainFilters() {
     const displayName = domain.replace('www.', '').split('.')[0];
     html += `
       <button class="domain-chip" data-domain="${escapeHtml(domain)}">
-        <img src="${data.faviconUrl}" class="domain-favicon" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+        <img src="${data.faviconUrl}" class="domain-favicon">
         <span class="domain-icon" style="display:none;">${data.icon}</span>
         <span class="domain-name">${escapeHtml(displayName)}</span>
         <span class="domain-count">(${data.count})</span>
@@ -690,16 +770,18 @@ function renderStashDomainFilters() {
 // HTML creators
 function createActivityItemHTML(item) {
   const hasReminder = stashedTabs.some(tab => tab.url === item.url);
-  const favicon = getFavicon(item.url);
   const timeSince = getTimeSince(item.lastVisitTime);
-  
+  const domain = getDomain(item.url);
+
   return `
     <div class="activity-item" id="activity-${item.id}">
-      <div class="item-favicon">${favicon}</div>
+      <div class="item-favicon">
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
+      </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(item.title || 'Untitled')}</div>
         <div class="item-meta">
-          <span>${getDomain(item.url)}</span>
+          <span>${domain}</span>
           <span>•</span>
           <span>${timeSince}</span>
           ${hasReminder ? '<span class="reminder-indicator">⏰</span>' : ''}
@@ -711,15 +793,17 @@ function createActivityItemHTML(item) {
 
 function createClosedTabHTML(tab, index) {
   const hasReminder = stashedTabs.some(t => t.url === tab.url);
-  const favicon = getFavicon(tab.url);
-  
+  const domain = getDomain(tab.url);
+
   return `
     <div class="activity-item" id="closed-${index}">
-      <div class="item-favicon">${favicon}</div>
+      <div class="item-favicon">
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
+      </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(tab.title || 'Untitled')}</div>
         <div class="item-meta">
-          <span>${getDomain(tab.url)}</span>
+          <span>${domain}</span>
           ${hasReminder ? '<span class="reminder-indicator">⏰</span>' : ''}
         </div>
       </div>
@@ -728,15 +812,19 @@ function createClosedTabHTML(tab, index) {
 }
 
 function createMostVisitedHTML(site, index) {
-  const favicon = getFavicon(site.url);
-  
+  const domain = getDomain(site.url);
+  const visitCount = site.visitCount || 0;
+
   return `
     <div class="activity-item" id="visited-${index}">
-      <div class="item-favicon">${favicon}</div>
+      <div class="item-favicon">
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
+      </div>
       <div class="item-content">
         <div class="item-title">${escapeHtml(site.title || 'Untitled')}</div>
         <div class="item-meta">
-          <span>${getDomain(site.url)}</span>
+          <span>${domain}</span>
+          <span class="visit-count">${visitCount} visits</span>
         </div>
       </div>
     </div>
@@ -746,12 +834,14 @@ function createMostVisitedHTML(site, index) {
 function createPreviewCardHTML(tab) {
   const reminderText = tab.reminderDate ? formatReminderDate(tab.reminderDate) : '';
   const isOverdue = tab.reminderDate && new Date(tab.reminderDate) < new Date();
-  
+
   return `
     <div class="preview-card" id="preview-${tab.id}">
       <div class="preview-card-title">${escapeHtml(tab.title)}</div>
       <div class="preview-card-meta">
-        ${isOverdue ? '🔴' : tab.reminderDate ? '⏰' : '📋'}
+        <span class="material-symbols-outlined" style="font-size: 14px; color: ${isOverdue ? '#B3261E' : tab.reminderDate ? '#6750A4' : '#79747E'};">
+          ${isOverdue ? 'error' : tab.reminderDate ? 'alarm' : 'description'}
+        </span>
         ${reminderText || 'No reminder'}
       </div>
     </div>
@@ -759,22 +849,24 @@ function createPreviewCardHTML(tab) {
 }
 
 function createStashItemHTML(tab, isOverdue = false) {
-  const favicon = getFavicon(tab.url);
   const stashedTime = formatDate(new Date(tab.stashedAt));
   const reminderText = tab.reminderDate ? formatReminderDate(tab.reminderDate) : '';
-  
+  const domain = getDomain(tab.url);
+
   return `
     <div class="stash-item ${isOverdue ? 'overdue' : ''}" id="stash-${tab.id}">
       <div class="stash-item-header">
         <input type="checkbox" class="stash-checkbox" id="check-${tab.id}">
-        <div class="stash-favicon">${favicon}</div>
+        <div class="stash-favicon">
+          <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=16" alt="" />
+        </div>
         <div class="stash-content">
           <div class="stash-title">${escapeHtml(tab.title)}</div>
           <div class="stash-url">${escapeHtml(tab.url)}</div>
           ${tab.notes ? `<div class="stash-notes">${escapeHtml(tab.notes)}</div>` : ''}
           <div class="stash-meta">
-            <span>🕐 Stashed ${stashedTime}</span>
-            ${tab.reminderDate ? `<span class="stash-reminder">⏰ ${reminderText}</span>` : ''}
+            <span>Stashed ${stashedTime}</span>
+            ${tab.reminderDate ? `<span class="stash-reminder">${reminderText}</span>` : ''}
           </div>
           <div class="stash-actions">
             <button class="stash-btn primary" id="open-${tab.id}">Open</button>
@@ -1052,12 +1144,12 @@ function handleSearch(e) {
       const justNow = filteredHistory.filter(item => item.lastVisitTime > fiveMinutesAgo);
       renderFilteredList('justNowList', justNow);
     } else if (panelId === 'earlierToday') {
-      const section = createSection('Earlier Today', 'earlierTodayList');
+      const section = createSection('Recent History', 'earlierTodayList');
       feed.appendChild(section);
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
       const earlier = filteredHistory.filter(item => item.lastVisitTime <= fiveMinutesAgo);
-      renderFilteredList('earlierTodayList', earlier);
+      renderFilteredHistoryWithGroups('earlierTodayList', earlier);
     } else if (panelId === 'recentlyClosed') {
       const section = createSection('Recently Closed', 'recentlyClosedList');
       feed.appendChild(section);
@@ -1072,18 +1164,64 @@ function handleSearch(e) {
 
 function renderFilteredList(containerId, items) {
   const list = document.getElementById(containerId);
-  
+
   if (!list) return;
-  
+
   const deduped = deduplicateByUrl(items).slice(0, 25);
-  
+
   if (deduped.length === 0) {
     list.innerHTML = '<div class="empty-message">No matching results</div>';
     return;
   }
-  
+
   list.innerHTML = deduped.map(item => createActivityItemHTML(item)).join('');
-  
+
+  deduped.forEach((item) => {
+    const elem = document.getElementById(`activity-${item.id}`);
+    if (elem) {
+      elem.addEventListener('click', () => {
+        window.open(item.url, '_blank');
+      });
+    }
+  });
+}
+
+function renderFilteredHistoryWithGroups(containerId, items) {
+  const list = document.getElementById(containerId);
+
+  if (!list) return;
+
+  const deduped = deduplicateByUrl(items).slice(0, settings.panels.earlierToday.limit);
+
+  if (deduped.length === 0) {
+    list.innerHTML = '<div class="empty-message">No matching results</div>';
+    return;
+  }
+
+  // Group by date
+  const grouped = {};
+  const groupOrder = ['Today', 'Yesterday', 'This Week', 'Last Week', 'This Month', 'Last Month', 'Older'];
+
+  deduped.forEach(item => {
+    const group = getDateGroup(item.lastVisitTime);
+    if (!grouped[group]) {
+      grouped[group] = [];
+    }
+    grouped[group].push(item);
+  });
+
+  // Render with group headings
+  let html = '';
+  groupOrder.forEach(group => {
+    if (grouped[group] && grouped[group].length > 0) {
+      html += `<div class="date-group-heading">${group}</div>`;
+      html += grouped[group].map(item => createActivityItemHTML(item)).join('');
+    }
+  });
+
+  list.innerHTML = html;
+
+  // Add click handlers
   deduped.forEach((item) => {
     const elem = document.getElementById(`activity-${item.id}`);
     if (elem) {
@@ -1478,86 +1616,212 @@ async function closeDuplicateTabs() {
 }
 
 async function groupTabsByDomain() {
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-  
-  if (!confirm('Group all tabs in this window by domain?')) {
-    return;
-  }
-  
-  // Skip chrome internal pages
-  const regularTabs = tabs.filter(tab => 
-    !tab.url.startsWith('chrome://') && 
-    !tab.url.startsWith('chrome-extension://')
-  );
-  
-  // Group tabs by domain
-  const domainGroups = new Map();
-  regularTabs.forEach(tab => {
-    try {
-      const domain = new URL(tab.url).hostname;
-      if (!domainGroups.has(domain)) {
-        domainGroups.set(domain, []);
-      }
-      domainGroups.get(domain).push(tab.id);
-    } catch (e) {
-      console.warn('Failed to parse URL:', tab.url);
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+
+    if (!confirm('Group all tabs in this window by domain?\n\nThis will create tab groups for each domain (e.g., all Google Docs together).')) {
+      return;
     }
-  });
-  
-  // Create tab groups (Chrome 89+)
-  for (const [domain, tabIds] of domainGroups) {
-    if (tabIds.length > 1) {
+
+    // Skip chrome internal pages
+    const regularTabs = tabs.filter(tab =>
+      !tab.url.startsWith('chrome://') &&
+      !tab.url.startsWith('chrome-extension://')
+    );
+
+    if (regularTabs.length === 0) {
+      alert('No tabs to group!');
+      return;
+    }
+
+    // Group tabs by full domain (includes subdomain)
+    const domainGroups = new Map();
+    regularTabs.forEach(tab => {
       try {
-        const groupId = await chrome.tabs.group({ tabIds });
-        await chrome.tabGroups.update(groupId, {
-          title: domain.replace('www.', ''),
-          collapsed: false
-        });
+        const url = new URL(tab.url);
+        const domain = url.hostname; // Keeps full domain including subdomains
+        if (!domainGroups.has(domain)) {
+          domainGroups.set(domain, []);
+        }
+        domainGroups.get(domain).push(tab.id);
       } catch (e) {
-        console.warn('Failed to create group for domain:', domain, e);
+        console.warn('Failed to parse URL:', tab.url);
+      }
+    });
+
+    // Create tab groups for each domain (Chrome 89+)
+    let groupedCount = 0;
+    for (const [domain, tabIds] of domainGroups) {
+      if (tabIds.length >= 1) { // Group even single tabs for consistency
+        try {
+          const groupId = await chrome.tabs.group({ tabIds });
+          await chrome.tabGroups.update(groupId, {
+            title: domain.replace('www.', ''),
+            collapsed: false
+          });
+          groupedCount++;
+        } catch (e) {
+          console.error('Failed to create group for domain:', domain, e);
+        }
       }
     }
+
+    alert(`Grouped ${regularTabs.length} tabs into ${groupedCount} domain groups!`);
+  } catch (error) {
+    console.error('Error grouping tabs:', error);
+    alert('Failed to group tabs. Please try again.');
   }
 }
 
 async function splitTabsToWindows() {
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-  
-  if (!confirm('Split tabs by domain into separate windows?')) {
-    return;
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+
+    if (!confirm('Split tabs by domain into separate windows?\n\nThis will create a new window for each domain (e.g., all Google Docs in one window).')) {
+      return;
+    }
+
+    // Skip chrome internal pages
+    const regularTabs = tabs.filter(tab =>
+      !tab.url.startsWith('chrome://') &&
+      !tab.url.startsWith('chrome-extension://')
+    );
+
+    if (regularTabs.length === 0) {
+      alert('No tabs to split!');
+      return;
+    }
+
+    // Group tabs by full domain (includes subdomain)
+    const domainGroups = new Map();
+    regularTabs.forEach(tab => {
+      try {
+        const url = new URL(tab.url);
+        const domain = url.hostname;
+        if (!domainGroups.has(domain)) {
+          domainGroups.set(domain, []);
+        }
+        domainGroups.get(domain).push(tab);
+      } catch (e) {
+        console.warn('Failed to parse URL:', tab.url);
+      }
+    });
+
+    const currentWindowId = tabs[0].windowId;
+    let windowsCreated = 0;
+
+    // Create new window for each domain
+    for (const [domain, domainTabs] of domainGroups) {
+      if (domainTabs.length >= 1) {
+        try {
+          // Create new window with all tabs of this domain
+          const tabIds = domainTabs.map(t => t.id);
+          const newWindow = await chrome.windows.create({
+            tabId: tabIds[0]
+          });
+
+          // Move remaining tabs to the new window
+          if (tabIds.length > 1) {
+            await chrome.tabs.move(tabIds.slice(1), {
+              windowId: newWindow.id,
+              index: -1
+            });
+          }
+
+          windowsCreated++;
+        } catch (e) {
+          console.error('Failed to create window for domain:', domain, e);
+        }
+      }
+    }
+
+    alert(`Split ${regularTabs.length} tabs into ${windowsCreated} windows by domain!`);
+  } catch (error) {
+    console.error('Error splitting tabs:', error);
+    alert('Failed to split tabs. Please try again.');
   }
-  
-  // Skip chrome internal pages
-  const regularTabs = tabs.filter(tab => 
-    !tab.url.startsWith('chrome://') && 
-    !tab.url.startsWith('chrome-extension://')
-  );
-  
-  // Group tabs by domain
-  const domainGroups = new Map();
-  regularTabs.forEach(tab => {
-    try {
-      const domain = new URL(tab.url).hostname;
-      if (!domainGroups.has(domain)) {
-        domainGroups.set(domain, []);
-      }
-      domainGroups.get(domain).push(tab.id);
-    } catch (e) {
-      console.warn('Failed to parse URL:', tab.url);
+}
+
+async function ungroupAll() {
+  try {
+    // Only get normal windows (exclude popup, devtools, etc.)
+    const allWindows = await chrome.windows.getAll({
+      populate: true,
+      windowTypes: ['normal']
+    });
+
+    if (allWindows.length === 0) {
+      alert('No normal windows found!');
+      return;
     }
-  });
-  
-  // Create new window for each domain with multiple tabs
-  for (const [domain, tabIds] of domainGroups) {
-    if (tabIds.length > 1) {
-      // Create new window with first tab
-      await chrome.windows.create({ tabId: tabIds[0] });
-      // Move remaining tabs to the new window
-      const newWindow = await chrome.windows.getLastFocused();
-      for (let i = 1; i < tabIds.length; i++) {
-        await chrome.tabs.move(tabIds[i], { windowId: newWindow.id, index: -1 });
+
+    if (!confirm('Ungroup all tabs and merge into a single window?\n\nThis will remove all tab groups and move all tabs to one window.')) {
+      return;
+    }
+
+    // Collect all tabs from normal windows (excluding chrome:// pages and pinned tabs)
+    const allTabs = [];
+    let mainWindowId = allWindows[0].id; // Use first normal window as main
+
+    for (const window of allWindows) {
+      for (const tab of window.tabs) {
+        if (!tab.url.startsWith('chrome://') &&
+            !tab.url.startsWith('chrome-extension://') &&
+            !tab.pinned) {
+          allTabs.push(tab);
+        }
       }
     }
+
+    if (allTabs.length === 0) {
+      alert('No tabs to ungroup!');
+      return;
+    }
+
+    // First, ungroup all tabs (remove from tab groups)
+    for (const tab of allTabs) {
+      if (tab.groupId !== -1) {
+        try {
+          await chrome.tabs.ungroup(tab.id);
+        } catch (e) {
+          console.warn('Failed to ungroup tab:', tab.id, e);
+        }
+      }
+    }
+
+    // Move all tabs to the main window
+    const tabsToMove = allTabs.filter(tab => tab.windowId !== mainWindowId);
+    if (tabsToMove.length > 0) {
+      const tabIds = tabsToMove.map(t => t.id);
+      try {
+        await chrome.tabs.move(tabIds, {
+          windowId: mainWindowId,
+          index: -1
+        });
+      } catch (e) {
+        console.error('Failed to move tabs:', e);
+        throw e;
+      }
+    }
+
+    // Close empty normal windows
+    for (const window of allWindows) {
+      if (window.id !== mainWindowId) {
+        const remainingTabs = await chrome.tabs.query({ windowId: window.id });
+        if (remainingTabs.length === 0) {
+          try {
+            await chrome.windows.remove(window.id);
+          } catch (e) {
+            console.warn('Failed to close window:', window.id, e);
+          }
+        }
+      }
+    }
+
+    alert(`Ungrouped and merged ${allTabs.length} tabs into a single window!`);
+  } catch (error) {
+    console.error('Error ungrouping tabs:', error);
+    alert('Failed to ungroup tabs. Please try again.');
   }
 }
 
@@ -1565,6 +1829,7 @@ async function splitTabsToWindows() {
 const closeDuplicatesBtn = document.getElementById('closeDuplicatesBtn');
 const groupByDomainBtn = document.getElementById('groupByDomainBtn');
 const groupToWindowsBtn = document.getElementById('groupToWindowsBtn');
+const ungroupAllBtn = document.getElementById('ungroupAllBtn');
 
 if (closeDuplicatesBtn) {
   closeDuplicatesBtn.addEventListener('click', closeDuplicateTabs);
@@ -1574,6 +1839,9 @@ if (groupByDomainBtn) {
 }
 if (groupToWindowsBtn) {
   groupToWindowsBtn.addEventListener('click', splitTabsToWindows);
+}
+if (ungroupAllBtn) {
+  ungroupAllBtn.addEventListener('click', ungroupAll);
 }
 
 // Utility functions

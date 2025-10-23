@@ -309,6 +309,10 @@ body {
   font-family: 'Roboto', sans-serif;
 }
 
+.md-outlined-button span {
+  pointer-events: none;
+}
+
 .md-outlined-button:hover {
   background: #F5F0FF;
   border-color: #6750A4;
@@ -333,6 +337,10 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
+.md-filled-button span {
+  pointer-events: none;
+}
+
 .md-filled-button:hover {
   background: #7E57C2;
   box-shadow: 0 2px 6px rgba(0,0,0,0.25);
@@ -352,6 +360,10 @@ body {
   align-items: center;
   gap: 8px;
   font-family: 'Roboto', sans-serif;
+}
+
+.md-text-button span {
+  pointer-events: none;
 }
 
 .md-text-button:hover {
@@ -475,6 +487,23 @@ body {
   border-bottom: 1px solid #f0f0f0;
 }
 
+.date-group-heading {
+  font-size: 11px;
+  font-weight: 700;
+  color: #79747E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: #F7F2FA;
+  border-radius: 4px;
+}
+
+.date-group-heading:first-child {
+  margin-top: 0;
+}
+
 .activity-list {
   display: flex;
   flex-direction: column;
@@ -509,12 +538,14 @@ body {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .item-favicon img {
-  width: 100%;
-  height: 100%;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
 }
 
@@ -793,8 +824,15 @@ body {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  font-size: 18px;
-  line-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stash-favicon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .stash-content {
@@ -1354,6 +1392,10 @@ body {
   font-size: 13px;
   font-weight: 500;
   text-align: left;
+}
+
+.organize-btn span {
+  pointer-events: none;
 }
 
 .organize-btn:hover {

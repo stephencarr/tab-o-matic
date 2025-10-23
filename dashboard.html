@@ -91,13 +91,17 @@
             ORGANIZE
           </h3>
           <div class="organize-actions">
-            <button class="organize-btn md-outlined-button" id="groupByDomainBtn">
+            <button type="button" class="organize-btn md-outlined-button" id="groupByDomainBtn">
               <span class="material-symbols-outlined">folder</span>
               <span>Group by Domain</span>
             </button>
-            <button class="organize-btn md-outlined-button" id="groupToWindowsBtn">
+            <button type="button" class="organize-btn md-outlined-button" id="groupToWindowsBtn">
               <span class="material-symbols-outlined">space_dashboard</span>
               <span>Split to Windows</span>
+            </button>
+            <button type="button" class="organize-btn md-outlined-button" id="ungroupAllBtn">
+              <span class="material-symbols-outlined">tab_unselected</span>
+              <span>Ungroup All</span>
             </button>
           </div>
         </div>
@@ -180,20 +184,6 @@
           </div>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="sidebar-section">
-          <h3 class="sidebar-header">QUICK ACTIONS</h3>
-          <div class="organize-actions">
-            <button class="organize-btn md-outlined-button" id="exportStashBtn">
-              <span class="material-symbols-outlined">download</span>
-              <span>Export All</span>
-            </button>
-            <button class="organize-btn md-outlined-button" id="clearCompletedBtn">
-              <span class="material-symbols-outlined">check_circle</span>
-              <span>Clear Opened</span>
-            </button>
-          </div>
-        </div>
       </aside>
 
       <!-- Main Content Area -->
@@ -336,7 +326,7 @@
             <div class="panel-setting-item" data-panel="earlierToday">
               <div class="panel-drag-handle">⋮⋮</div>
               <input type="checkbox" id="showEarlierToday" checked>
-              <label for="showEarlierToday">Earlier Today</label>
+              <label for="showEarlierToday">Recent History</label>
               <div class="panel-controls">
                 <label class="panel-limit-label">Show:</label>
                 <input type="number" id="limitEarlierToday" value="25" min="5" max="100" class="panel-limit-input">
