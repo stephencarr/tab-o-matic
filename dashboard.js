@@ -48,13 +48,13 @@ async function loadData() {
     settings = { ...settings, ...settingsResult.settings };
   }
   
-  // Load recent history (last 100 items from today for better filtering)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Load recent history (last 500 items from past 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const historyItems = await chrome.history.search({
     text: '',
-    startTime: today.getTime(),
-    maxResults: 100
+    startTime: thirtyDaysAgo.getTime(),
+    maxResults: 500
   });
   recentHistory = historyItems;
   
@@ -151,7 +151,7 @@ function renderRecentView() {
       feed.appendChild(section);
       renderJustNow();
     } else if (panelId === 'earlierToday') {
-      const section = createSection('Earlier Today', 'earlierTodayList');
+      const section = createSection('Recent History', 'earlierTodayList');
       feed.appendChild(section);
       renderEarlierToday();
     } else if (panelId === 'recentlyClosed') {
@@ -225,7 +225,7 @@ function renderEarlierToday() {
   ).slice(0, settings.panels.earlierToday.limit);
   
   if (earlier.length === 0) {
-    list.innerHTML = '<div class="empty-message">No activity earlier today</div>';
+    list.innerHTML = '<div class="empty-message">No recent history</div>';
     return;
   }
   
@@ -397,7 +397,7 @@ function handleDomainFilter(chip) {
       const justNow = filteredHistory.filter(item => item.lastVisitTime > fiveMinutesAgo);
       renderFilteredList('justNowList', justNow);
     } else if (panelId === 'earlierToday') {
-      const section = createSection('Earlier Today', 'earlierTodayList');
+      const section = createSection('Recent History', 'earlierTodayList');
       feed.appendChild(section);
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
@@ -1052,7 +1052,7 @@ function handleSearch(e) {
       const justNow = filteredHistory.filter(item => item.lastVisitTime > fiveMinutesAgo);
       renderFilteredList('justNowList', justNow);
     } else if (panelId === 'earlierToday') {
-      const section = createSection('Earlier Today', 'earlierTodayList');
+      const section = createSection('Recent History', 'earlierTodayList');
       feed.appendChild(section);
       const now = Date.now();
       const fiveMinutesAgo = now - (5 * 60 * 1000);
